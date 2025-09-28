@@ -12,7 +12,7 @@ const upload = multer({ dest: "uploads/" });
 
 app.use(cors());
 app.use(express.json());
-
+app.get("/", (req, res) => res.send("Hello World!"));
 // Utility: log submissions into a file
 const logFile = path.join(process.cwd(), "submission_log.txt");
 function logSubmission(data) {
