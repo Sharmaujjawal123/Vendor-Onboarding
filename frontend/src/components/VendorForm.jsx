@@ -143,7 +143,7 @@ export default function VendorForm() {
 
       console.log("Submitting form data:", Object.fromEntries(data.entries()));
 
-      const response = await fetch("https://vendor-onboarding-two.vercel.app/submit", {
+      const response = await fetch("https://vendor-onboarding-yy8x.vercel.app/submit", {
         method: "POST",
         body: data,
       });
