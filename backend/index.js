@@ -1,27 +1,19 @@
-// part 4 final 
-
 import express from "express";
 import fetch from "node-fetch";
 import multer from "multer";
-import fs from "fs";
 import cors from "cors";
-import path from "path";
 
 const app = express();
-const upload = multer({ dest: "uploads/" });
+
+// ✅ Use memory storage (no files on disk)
+const upload = multer({ storage: multer.memoryStorage() });
 
 app.use(cors());
 app.use(express.json());
-app.get("/", (req, res) => res.send("Hello World!"));
-// Utility: log submissions into a file
-const logFile = path.join(process.cwd(), "submission_log.txt");
-function logSubmission(data) {
-  fs.appendFileSync(
-    logFile,
-    `[${new Date().toISOString()}] ${JSON.stringify(data, null, 2)}\n\n`
-  );
-}
 
+app.get("/", (req, res) => res.send("Hello World!"));
+
+// Main submit route
 app.post("/submit", upload.single("document"), async (req, res) => {
   try {
     console.log("📥 Received submission:", req.body);
@@ -90,7 +82,7 @@ app.post("/submit", upload.single("document"), async (req, res) => {
     }
 
     const requestSysId = orderData.result.sys_id;
-    const requestNumber = orderData.result.request_number; // ✅ Added request_number
+    const requestNumber = orderData.result.request_number;
 
     // Step 2: Fetch sc_req_item
     const itemResp = await fetch(
@@ -110,7 +102,7 @@ app.post("/submit", upload.single("document"), async (req, res) => {
     const items = (await itemResp.json()).result;
     let reqItemSysId = items && items.length > 0 ? items[0].sys_id : null;
 
-    // Step 3: Country-specific file upload
+    // Step 3: Direct file upload to ServiceNow (no local saving)
     let variableName = "";
     if (vendor_country === "India") variableName = "gst_file";
     else if (vendor_country === "Europe") variableName = "vat_file";
@@ -119,7 +111,7 @@ app.post("/submit", upload.single("document"), async (req, res) => {
     let attachData = null;
     if (req.file && variableName && reqItemSysId) {
       try {
-        const fileBuffer = fs.readFileSync(req.file.path);
+        const fileBuffer = req.file.buffer; // ✅ Directly from memory
         const fileName = `${variableName}_${req.file.originalname}`;
         const mimeType = req.file.mimetype || "application/octet-stream";
 
@@ -140,29 +132,23 @@ app.post("/submit", upload.single("document"), async (req, res) => {
           attachData = await attachResp.json();
           console.log("📎 File uploaded successfully:", attachData);
         } else {
-          console.error(
-            "❌ File upload failed:",
-            attachResp.status,
-            attachResp.statusText
-          );
+          console.error("❌ File upload failed:", attachResp.status, attachResp.statusText);
           console.error("Response:", await attachResp.text());
         }
       } catch (fileError) {
         console.error("File handling error:", fileError);
-      } finally {
-        if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); // Clean up temp file
       }
     }
 
-    // Log submission
-    logSubmission({
+    // ✅ Console log submission
+    console.log("📑 Submission summary:", {
       vendor_name,
       vendor_email,
       vendor_contact_number,
       service_offering,
       vendor_country,
       requestSysId,
-      requestNumber, // ✅ Log request_number
+      requestNumber,
       reqItemSysId,
       attachmentUploaded: !!attachData,
     });
@@ -172,7 +158,7 @@ app.post("/submit", upload.single("document"), async (req, res) => {
       success: true,
       message: "🌾 Vendor registration submitted successfully!",
       requestSysId,
-      requestNumber, // ✅ Send to frontend
+      requestNumber,
       reqItemSysId,
       attachment: attachData,
       submittedData: req.body,
@@ -188,5 +174,3 @@ app.post("/submit", upload.single("document"), async (req, res) => {
 });
 
 app.listen(3000, () => console.log("🚀 Server running on port 3000"));
-
-
